@@ -1,0 +1,148 @@
+import streamlit as st
+from opensees_model import create_vehicle
+from vehicle_library import PREDEFINED_VEHICLES
+
+
+st.set_page_config(page_title="Beam model (OpenSees) — Streamlit", layout="wide")
+st.header("Bridge Properties Input")
+
+# --- Sidebar: Model definition ---
+st.sidebar.header("Model geometry and properties")
+span_count = st.sidebar.number_input("Number of spans", min_value=1, max_value=10, value=2)
+
+span_lengths = []
+st.sidebar.subheader("Span lengths (m)")
+for i in range(span_count):
+    length = st.sidebar.number_input(f"Length of span {i+1} m", min_value=0.1, value=5.0, step=0.1, key=f"span_len_{i}")
+    span_lengths.append(length)
+
+
+nodes_per_span = st.sidebar.number_input("Nodes per span", min_value=2, value=11)
+
+st.sidebar.markdown("---")
+# --- Support configuration ---
+st.sidebar.header("Support Conditions")
+
+support_options = ["second-class", "pinned", "fixed"]
+
+supports = []
+
+
+st.sidebar.write("Select support type for each node (span boundaries):")
+
+for i in range(span_count + 1):
+    support = st.sidebar.selectbox(
+        f"Support No {i+1}",
+        support_options,
+        index=0,
+        key=f"support_{i}"
+    )
+    supports.append(support)
+
+st.sidebar.write("Selected supports:", supports)
+
+st.sidebar.markdown("---")
+st.sidebar.header("Estructural Properties")
+E = st.sidebar.number_input("Elastic modulus E (kPa)", min_value=1e3, value=25_000_000.0, step=100000.0, format="%.1f")
+A = st.sidebar.number_input("Area A (m2)", min_value=0.001, value=0.6, step=0.01)
+I = st.sidebar.number_input("Inertia I (m4)", min_value=0.0001, value=0.05, step=0.001)
+
+properties = {
+    'span_lengths': span_lengths,
+    'nodes_per_span': int(nodes_per_span),
+    'support_types': supports,
+    'E': float(E),
+    'A': float(A),
+    'I': float(I),
+}
+
+st.sidebar.markdown("---")
+# --- Vehicle configuration ---
+st.sidebar.header("Vehicle – Custom Axle Loads and Positions")
+
+# Number of axles
+
+vehicle_name = st.sidebar.text_input("Vehicle name", value="Custom Vehicle")
+n_axles = st.sidebar.number_input("Number of axles", min_value=1, max_value=20, value=3)
+
+
+axle_loads = []
+axle_positions = []
+
+st.sidebar.subheader("Axle-by-axle configuration")
+
+for i in range(n_axles):
+    load = st.sidebar.number_input(
+        f"Axle {i+1} Load (kN)",
+        min_value=0.0,
+        value=100.0 if i == 0 else 50.0,
+        step=1.0,
+        key=f"axle_load_{i}"
+    )
+    axle_loads.append(load)
+
+for i in range(n_axles-1):
+    pos = st.sidebar.number_input(
+        f"Axle {i+1} Position from front (m)",
+        min_value=0.0,
+        value=2.0 if i == 0 else 50.0,
+        step=0.1,
+        key=f"axle_pos_{i}"
+    )
+    axle_positions.append(pos)
+
+st.sidebar.markdown("---")
+
+st.sidebar.header("Vehicle Selection")
+
+vehicle_names = list(PREDEFINED_VEHICLES.keys())
+
+selected_vehicle = st.sidebar.selectbox(
+    "Choose a predefined vehicle",
+    vehicle_names
+)
+
+if selected_vehicle != "Custom vehicle":
+    veh_data = PREDEFINED_VEHICLES[selected_vehicle]
+
+    n_axles_ref = veh_data["n_axles"]
+    axle_loads_ref = veh_data["axle_loads"]
+    axle_positions_ref = veh_data["axle_positions"]
+    vehicle_name_ref = selected_vehicle
+
+    st.sidebar.success(f"Loaded: {selected_vehicle}")
+
+
+
+st.sidebar.markdown("---")
+
+
+
+# Build final vehicle dict
+vehicle_properties = {
+    "name": vehicle_name,
+    "n_axles": n_axles,
+    "loads": axle_loads,
+    "positions": axle_positions,
+}
+
+# --------- BUTTON TO USE THE DICTIONARY ----------
+if st.sidebar.button("Create Vehicle"):
+    st.sidebar.success("Vehicle created!")
+    create_vehicle(properties, n_axles, axle_loads, axle_positions, vehicle_name)
+    create_vehicle(properties, n_axles_ref, axle_loads_ref, axle_positions_ref, vehicle_name_ref)
+
+st.json(vehicle_properties)
+# --------- BUILD PROPERTIES DICTIONARY -----------
+
+
+
+
+
+
+
+# Show the dictionary to the user
+st.subheader("Generated Properties Dictionary")
+st.json(properties)
+
+
