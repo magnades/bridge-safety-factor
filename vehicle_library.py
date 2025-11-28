@@ -1,5 +1,11 @@
 # vehicle_library.py
 PREDEFINED_VEHICLES = {
+    "Portugal": {
+        "n_axles": 3,
+        "axle_loads": [200, 200, 200],           # kN
+        "axle_positions": [2.5 , 2.5]             # spacing between axles
+    },
+
     "Tandem": {
         "n_axles": 2,
         "axle_loads": [100, 100],

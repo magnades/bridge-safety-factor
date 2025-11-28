@@ -13,12 +13,16 @@ st.set_page_config(page_title="Beam model (OpenSees) — Streamlit", layout="wid
 
 # --- Sidebar: Model definition ---
 st.sidebar.header("Model geometry and properties")
-span_count = st.sidebar.number_input("Number of spans", min_value=1, max_value=10, value=2)
+span_count = st.sidebar.number_input("Number of spans", min_value=1, max_value=10, value=3)
 
 span_lengths = []
 st.sidebar.subheader("Span lengths (m)")
 for i in range(span_count):
-    length = st.sidebar.number_input(f"Length of span {i+1} m", min_value=0.1, value=5.0, step=0.1, key=f"span_len_{i}")
+    length = st.sidebar.number_input(f"Length of span {i+1} m",
+                                     min_value=0.1,
+                                     value=40*0.8 if i!=1 else 40.0,
+                                     step=0.1,
+                                     key=f"span_len_{i}")
     span_lengths.append(length)
 
 
@@ -80,7 +84,7 @@ for i in range(n_axles):
     load = st.sidebar.number_input(
         f"Axle {i+1} Load (kN)",
         min_value=0.0,
-        value=100.0 if i == 0 else 50.0,
+        value=400.0 if i == 0 else 600.0,
         step=1.0,
         key=f"axle_load_{i}"
     )
@@ -90,15 +94,27 @@ for i in range(n_axles-1):
     pos = st.sidebar.number_input(
         f"Axle {i+1} Position from front (m)",
         min_value=0.0,
-        value=2.0 if i == 0 else 50.0,
+        value=9.75 if i == 0 else 11.50,
         step=0.1,
         key=f"axle_pos_{i}"
     )
     axle_positions.append(pos)
 
+trib_select = st.sidebar.number_input("Tributary width custom vehicle", min_value=1.0, value=1.0, step=0.5)
+
+# Build final vehicle dict
+cust_vehicle = {
+    "name": vehicle_name,
+    "n_axles": n_axles,
+    "loads": [load/trib_select for load in axle_loads],
+    "positions": axle_positions,
+}
+
+st.sidebar.write("Custom Vehicle:", cust_vehicle)
+
 st.sidebar.markdown("---")
 
-st.sidebar.header("Vehicle Selection")
+st.sidebar.header("Reference Vehicle Selection")
 
 vehicle_names = list(PREDEFINED_VEHICLES.keys())
 
@@ -107,35 +123,39 @@ selected_vehicle = st.sidebar.selectbox(
     vehicle_names
 )
 
+trib_ref = st.sidebar.number_input("Tributary width Reference Vehicle", min_value=1.0, value=1.0, step=0.5)
+
 if selected_vehicle != "Custom vehicle":
+
     veh_data = PREDEFINED_VEHICLES[selected_vehicle]
 
     n_axles_ref = veh_data["n_axles"]
-    axle_loads_ref = veh_data["axle_loads"]
+    axle_loads_ref = [load/trib_ref for load in veh_data["axle_loads"]]
     axle_positions_ref = veh_data["axle_positions"]
     vehicle_name_ref = selected_vehicle
 
     st.sidebar.success(f"Loaded: {selected_vehicle}")
 
+ref_vehicle = {
+    "name": selected_vehicle,
+    "n_axles": veh_data["n_axles"],
+    "axle_loads": [load/trib_ref for load in veh_data["axle_loads"]],
+    "axle_positions": veh_data["axle_positions"],
+}
 
+st.sidebar.write("Reference Vehicle:", ref_vehicle)
 
 st.sidebar.markdown("---")
 
 
 
-# Build final vehicle dict
-vehicle_properties = {
-    "name": vehicle_name,
-    "n_axles": n_axles,
-    "loads": axle_loads,
-    "positions": axle_positions,
-}
+
 
 # --------- BUTTON TO USE THE DICTIONARY ----------
-if st.sidebar.button("Create Vehicle"):
-    st.sidebar.success("Vehicle created!")
-    create_vehicle(properties, n_axles, axle_loads, axle_positions, vehicle_name)
-    create_vehicle(properties, n_axles_ref, axle_loads_ref, axle_positions_ref, vehicle_name_ref)
+if st.sidebar.button("Run Analysis"):
+    st.sidebar.success("Analysis Complete!")
+    create_vehicle(properties, n_axles, [load/trib_select for load in axle_loads], axle_positions, vehicle_name)
+    create_vehicle(properties, n_axles_ref, [load/trib_ref for load in veh_data["axle_loads"]], axle_positions_ref, vehicle_name_ref)
 
     run_analysis(properties)
 

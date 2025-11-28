@@ -832,6 +832,34 @@ def compute_ratios_between_vehicles(prop_dict, ref_vehicle, new_vehicle, coord_i
 
     return ratio_dict
 
+def compute_global_fs(prop_dict, cust_vehicle):
+    """
+    Computes global factors of safety (minimum ratios) between a reference vehicle
+    and a new vehicle using envelope results.
+
+    Returns:
+        {
+            'V_max_fs': ...,
+            'V_min_fs': ...,
+            'M_max_fs': ...,
+            'M_min_fs': ...,
+        }
+    """
+
+    ratios = prop_dict['vehicles'][cust_vehicle]['ratios']
+
+    V_max_ratios = [ratios[xi]['V_max_ratio'] for xi in ratios]
+    V_min_ratios = [ratios[xi]['V_min_ratio'] for xi in ratios]
+    M_max_ratios = [ratios[xi]['M_max_ratio'] for xi in ratios]
+    M_min_ratios = [ratios[xi]['M_min_ratio'] for xi in ratios]
+
+    global_fs = {
+        'FSV': min(V_max_ratios + V_min_ratios),
+        'FSM': min(M_max_ratios + M_min_ratios),
+    }
+
+    return global_fs
+
 
 def plot_vehicle_ratio_lines(prop_dict, ref_vehicle, new_vehicle):
     """
@@ -960,64 +988,58 @@ def run_analysis(prop_dict):
 
 
 
-# # # --- Example usage ---
-# if __name__ == "__main__":
-#     # Define properties
-#
-#     properties = {
-#         'span_lengths': [5.0, 5.0],  # lengths of each span in meters
-#         'nodes_per_span': 11,        # number of nodes per span
-#         'support_types': ['second-class', 'pinned', 'pinned'],
-#         'E': 25000000,
-#         'A': 0.6,
-#         'I': 0.05,
-#     }
-#
-#
-#
-#     # ops.load(6, 0.0, -10000.0, 0.0)  # Apply a point load of 10 kN at node 6
-#     #
-#     # ok = run_static_analysis()
-#     #
-#     # # plot_internal_forces()
-#     #
-#     # nodeId = nearest_node(2.6)
-#     #
-#     create_vehicle(properties, 3, [10, 100, 100], [2 , 4], "Dummy")
-#
-#     create_vehicle(properties, 2, [100, 100], [1.0], "Tandem")
-#
-#     # ok = run_vehicle_load_analysis(properties, 2.5, "Tandem", direction='left')
-#     # update_internal_forces(properties, 'Tandem')
-#
-#     # plot_internal_forces()
-#
-#     for vehicle in ['Dummy', 'Tandem']:
-#         for direction in ['left', 'right']:
-#             for x_ref in linspace(0, 10, 21 ):
-#
-#                 print(f'\n--- Analyzing position x_ref={x_ref:.2f} m, direction={direction} ---')
-#                 ok = run_vehicle_load_analysis(properties, x_ref, vehicle, direction=direction)
-#                 update_internal_forces(properties, vehicle)
-#
-#         build_envelope_from_history(properties, vehicle_name=vehicle)
-#         plot_envelope_with_labels(properties, vehicle_name=vehicle, title_prefix=f"{vehicle} Envelope")
-#
-#
-    # plot_two_vehicles_envelopes(properties, 'Tandem', 'Dummy')
-#
-#     ratios = compute_ratios_between_vehicles(
-#         properties,
-#         ref_vehicle="Tandem",
-#         new_vehicle="Dummy"
-#     )
-#
-    # plot_vehicle_ratio_lines(properties, 'Tandem', 'Dummy')
-#
-#     # plot_internal_forces()
-#
-#
-#
-#
-#     print(f'Fin: Analysis completed with status: {ok}')
+# # --- Example usage ---
+if __name__ == "__main__":
+    # Define properties
+
+    properties = {
+        'span_lengths': [40*0.8, 40.0, 40*0.8],  # lengths of each span in meters
+        'nodes_per_span': 11,        # number of nodes per span
+        'support_types': ['second-class', 'pinned', 'pinned', 'pinned'],
+        'E': 25000000,
+        'A': 0.6,
+        'I': 0.05,
+    }
+
+
+
+    # ops.load(6, 0.0, -10000.0, 0.0)  # Apply a point load of 10 kN at node 6
+    #
+    # ok = run_static_analysis()
+    #
+    # # plot_internal_forces()
+    #
+    # nodeId = nearest_node(2.6)
+    #
+    create_vehicle(properties, 3, [200, 200, 200], [2.5 , 2.5], "Portugal")
+
+    create_vehicle(properties, 3, [400, 600, 600], [9.75, 11.50], "Analisis")
+
+    # ok = run_vehicle_load_analysis(properties, 2.5, "Tandem", direction='left')
+    # update_internal_forces(properties, 'Tandem')
+
+    # plot_internal_forces()
+
+    run_analysis(properties)
+
+    plot_two_vehicles_envelopes(properties, 'Portugal', 'Analisis')
+
+    ratios = compute_ratios_between_vehicles(
+        properties,
+        ref_vehicle="Portugal",
+        new_vehicle="Analisis"
+    )
+
+    plot_vehicle_ratio_lines(properties, 'Portugal', 'Analisis')
+
+    global_fs = compute_global_fs(properties, 'Analisis')
+
+    print(f'Global Factors of Safety for Analisis vs Portugal: FSV={global_fs["FSV"]:.3f}, FSM={global_fs["FSM"]:.3f}')
+
+    # plot_internal_forces()
+
+
+
+
+    print(f'Fin: Analysis completed with status: {ok}')
 
