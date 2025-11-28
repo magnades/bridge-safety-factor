@@ -1,6 +1,5 @@
 import openseespy.opensees as ops
 import numpy as np
-# from openseespywin import getNodeTags
 from trame_vtk.modules.vtk.serializers.helpers import linspace
 
 
@@ -177,7 +176,7 @@ def nearest_node(x_target):
     x_target  : coordenada x donde quieres localizar el nodo más cercano
     """
     # obtener coordenadas x de cada nodo
-    node_list = getNodeTags()
+    node_list = ops.getNodeTags()
     coords = {n: ops.nodeCoord(n)[0] for n in node_list}
 
     # identificar nodo más cercano
@@ -573,6 +572,75 @@ def plot_envelope_with_labels(prop_dict, vehicle_name, title_prefix="Envelope", 
 
     plt.show()
 
+def plot_envelope_streamlit(prop_dict, vehicle_name, title_prefix="Envelope", decimals=2, text_offset=0.015):
+    """
+    Returns two matplotlib figures:
+    - fig_V : shear envelope figure
+    - fig_M : moment envelope figure
+    """
+
+    import matplotlib.pyplot as plt
+
+    env = prop_dict['vehicles'][vehicle_name]['plot_info']
+
+    x = env['x']
+
+    # ----------------- SHEAR -----------------
+    Vmax = env['V_max']
+    Vmin = env['V_min']
+
+    fig_V, axV = plt.subplots()
+
+    axV.plot(x, Vmax, marker='o', label="V max")
+    axV.plot(x, Vmin, marker='o', label="V min")
+    axV.fill_between(x, Vmin, Vmax, alpha=0.20)
+
+    # Range
+    V_range = max(Vmax + Vmin) - min(Vmax + Vmin) if len(Vmax) else 1.0
+
+    for xi, v in zip(x, Vmax):
+        axV.text(xi, v + text_offset * V_range, f"{v:.{decimals}f}",
+                 ha='center', va='bottom', fontsize=8)
+    for xi, v in zip(x, Vmin):
+        axV.text(xi, v - text_offset * V_range, f"{v:.{decimals}f}",
+                 ha='center', va='top', fontsize=8)
+
+    axV.set_title(f"{title_prefix} – Shear")
+    axV.set_xlabel("Position (m)")
+    axV.set_ylabel("Shear Force (kN)")
+    axV.grid(True)
+    axV.legend()
+    fig_V.tight_layout()
+
+    # ----------------- MOMENT -----------------
+    Mmax = env['M_max']
+    Mmin = env['M_min']
+
+    fig_M, axM = plt.subplots()
+
+    axM.plot(x, Mmax, marker='o', label="M max")
+    axM.plot(x, Mmin, marker='o', label="M min")
+    axM.fill_between(x, Mmin, Mmax, alpha=0.20)
+
+    # Range
+    M_range = max(Mmax + Mmin) - min(Mmax + Mmin) if len(Mmax) else 1.0
+
+    for xi, m in zip(x, Mmax):
+        axM.text(xi, m + text_offset * M_range, f"{m:.{decimals}f}",
+                 ha='center', va='bottom', fontsize=8)
+    for xi, m in zip(x, Mmin):
+        axM.text(xi, m - text_offset * M_range, f"{m:.{decimals}f}",
+                 ha='center', va='top', fontsize=8)
+
+    axM.set_title(f"{title_prefix} – Moment")
+    axM.set_xlabel("Position (m)")
+    axM.set_ylabel("Bending Moment (kN)")
+    axM.grid(True)
+    axM.legend()
+    fig_M.tight_layout()
+
+    return fig_V, fig_M
+
 def plot_two_vehicles_envelopes(prop_dict, veh_gray, veh_blue, coord_index=0):
     """
     Plots envelopes of two vehicles:
@@ -635,6 +703,69 @@ def plot_two_vehicles_envelopes(prop_dict, veh_gray, veh_blue, coord_index=0):
     plt.tight_layout()
 
     plt.show()
+
+def plot_two_vehicles_env_streamlit(prop_dict, veh_gray, veh_blue, coord_index=0):
+    """
+    Returns two matplotlib figures for Streamlit:
+    - Shear envelope comparison
+    - Moment envelope comparison
+    """
+
+    import matplotlib.pyplot as plt
+
+    # Load envelopes
+    envG = prop_dict['vehicles'][veh_gray]['plot_info']
+    envB = prop_dict['vehicles'][veh_blue]['plot_info']
+
+    xG = envG['x']
+    xB = envB['x']
+
+    # ---------------------------------------------------------
+    #                  FIGURE 1 — SHEAR
+    # ---------------------------------------------------------
+    figV, axV = plt.subplots(figsize=(8, 4))
+
+    # Grey vehicle
+    axV.plot(xG, envG['V_max'], color='grey', linestyle='-', marker='o', label=f"{veh_gray} max/min")
+    axV.plot(xG, envG['V_min'], color='grey', linestyle='-', marker='o')
+    axV.fill_between(xG, envG['V_min'], envG['V_max'], color='grey', alpha=0.15)
+
+    # Blue vehicle
+    axV.plot(xB, envB['V_max'], color='blue', linestyle='-', marker='s', label=f"{veh_blue} max/min")
+    axV.plot(xB, envB['V_min'], color='blue', linestyle='-', marker='s')
+    axV.fill_between(xB, envB['V_min'], envB['V_max'], color='blue', alpha=0.15)
+
+    axV.set_title(f"Shear Envelope – {veh_gray} vs {veh_blue}")
+    axV.set_xlabel("Position (m)")
+    axV.set_ylabel("Shear (kN)")
+    axV.grid(True)
+    axV.legend()
+    figV.tight_layout()
+
+    # ---------------------------------------------------------
+    #                  FIGURE 2 — MOMENT
+    # ---------------------------------------------------------
+    figM, axM = plt.subplots(figsize=(8, 4))
+
+    # Grey vehicle
+    axM.plot(xG, envG['M_max'], color='grey', linestyle='-', marker='o', label=f"{veh_gray} max/min")
+    axM.plot(xG, envG['M_min'], color='grey', linestyle='-', marker='o')
+    axM.fill_between(xG, envG['M_min'], envG['M_max'], color='grey', alpha=0.15)
+
+    # Blue vehicle
+    axM.plot(xB, envB['M_max'], color='blue', linestyle='-', marker='s', label=f"{veh_blue} max/min")
+    axM.plot(xB, envB['M_min'], color='blue', linestyle='-', marker='s')
+    axM.fill_between(xB, envB['M_min'], envB['M_max'], color='blue', alpha=0.15)
+
+    axM.set_title(f"Moment Envelope – {veh_gray} vs {veh_blue}")
+    axM.set_xlabel("Position (m)")
+    axM.set_ylabel("Moment (kN·m)")
+    axM.grid(True)
+    axM.legend()
+    figM.tight_layout()
+
+    return figV, figM
+
 
 def compute_ratios_between_vehicles(prop_dict, ref_vehicle, new_vehicle, coord_index=0):
     """
@@ -758,6 +889,63 @@ def plot_vehicle_ratio_lines(prop_dict, ref_vehicle, new_vehicle):
 
     plt.show()
 
+def plot_vehicle_ratio_streamlit(prop_dict, ref_vehicle, new_vehicle):
+    """
+    Returns two matplotlib figures for Streamlit:
+      - V_max_ratio & V_min_ratio vs position
+      - M_max_ratio & M_min_ratio vs position
+    """
+
+    import matplotlib.pyplot as plt
+
+    ratios = prop_dict['vehicles'][new_vehicle]['ratios']
+
+    # Sorted position keys
+    x = sorted(ratios.keys())
+
+    Vmax_r = [ratios[xi]['V_max_ratio'] for xi in x]
+    Vmin_r = [ratios[xi]['V_min_ratio'] for xi in x]
+    Mmax_r = [ratios[xi]['M_max_ratio'] for xi in x]
+    Mmin_r = [ratios[xi]['M_min_ratio'] for xi in x]
+
+    # ---------------------------------------------------------
+    #                 FIGURE 1 — SHEAR RATIO
+    # ---------------------------------------------------------
+    figVratio, axV = plt.subplots(figsize=(8, 4))
+
+    axV.plot(x, Vmax_r, marker='o', linestyle='-', color='red',  label='V_max_ratio')
+    axV.plot(x, Vmin_r, marker='o', linestyle='--', color='blue', label='V_min_ratio')
+
+    axV.axhline(1.0, color='black', linestyle=':', label='ratio = 1')
+
+    axV.set_title(f"Shear Ratios – {new_vehicle} / {ref_vehicle}")
+    axV.set_xlabel("Position (m)")
+    axV.set_ylabel("Shear Ratio")
+    axV.grid(True)
+    axV.legend()
+    figVratio.tight_layout()
+
+    # ---------------------------------------------------------
+    #                 FIGURE 2 — MOMENT RATIO
+    # ---------------------------------------------------------
+    figMratio, axM = plt.subplots(figsize=(8, 4))
+
+    axM.plot(x, Mmax_r, marker='s', linestyle='-',  color='red',  label='M_max_ratio')
+    axM.plot(x, Mmin_r, marker='s', linestyle='--', color='blue', label='M_min_ratio')
+
+    axM.axhline(1.0, color='black', linestyle=':', label='ratio = 1')
+
+    axM.set_title(f"Moment Ratios – {new_vehicle} / {ref_vehicle}")
+    axM.set_xlabel("Position (m)")
+    axM.set_ylabel("Moment Ratio")
+    axM.grid(True)
+    axM.legend()
+    figMratio.tight_layout()
+
+    return figVratio, figMratio
+
+
+
 def run_analysis(prop_dict):
     for vehicle in prop_dict['vehicles']:
         for direction in ['left', 'right']:
@@ -772,64 +960,64 @@ def run_analysis(prop_dict):
 
 
 
-# # --- Example usage ---
-if __name__ == "__main__":
-    # Define properties
-
-    properties = {
-        'span_lengths': [5.0, 5.0],  # lengths of each span in meters
-        'nodes_per_span': 11,        # number of nodes per span
-        'support_types': ['second-class', 'pinned', 'fixed'],
-        'E': 25000000,
-        'A': 0.6,
-        'I': 0.05,
-    }
-
-
-
-    # ops.load(6, 0.0, -10000.0, 0.0)  # Apply a point load of 10 kN at node 6
-    #
-    # ok = run_static_analysis()
-    #
-    # # plot_internal_forces()
-    #
-    # nodeId = nearest_node(2.6)
-    #
-    create_vehicle(properties, 3, [10, 100, 100], [2 , 4], "Dummy")
-
-    create_vehicle(properties, 2, [100, 100], [1.0], "Tandem")
-
-    # ok = run_vehicle_load_analysis(properties, 2.5, "Tandem", direction='left')
-    # update_internal_forces(properties, 'Tandem')
-
-    # plot_internal_forces()
-
-    for vehicle in ['Dummy', 'Tandem']:
-        for direction in ['left', 'right']:
-            for x_ref in linspace(0, 10, 21 ):
-
-                print(f'\n--- Analyzing position x_ref={x_ref:.2f} m, direction={direction} ---')
-                ok = run_vehicle_load_analysis(properties, x_ref, vehicle, direction=direction)
-                update_internal_forces(properties, vehicle)
-
-        build_envelope_from_history(properties, vehicle_name=vehicle)
-        plot_envelope_with_labels(properties, vehicle_name=vehicle, title_prefix=f"{vehicle} Envelope")
-
-
-    plot_two_vehicles_envelopes(properties, 'Tandem', 'Dummy')
-
-    ratios = compute_ratios_between_vehicles(
-        properties,
-        ref_vehicle="Tandem",
-        new_vehicle="Dummy"
-    )
-
-    plot_vehicle_ratio_lines(properties, 'Tandem', 'Dummy')
-
-    # plot_internal_forces()
-
-
-
-
-    print(f'Fin: Analysis completed with status: {ok}')
+# # # --- Example usage ---
+# if __name__ == "__main__":
+#     # Define properties
+#
+#     properties = {
+#         'span_lengths': [5.0, 5.0],  # lengths of each span in meters
+#         'nodes_per_span': 11,        # number of nodes per span
+#         'support_types': ['second-class', 'pinned', 'pinned'],
+#         'E': 25000000,
+#         'A': 0.6,
+#         'I': 0.05,
+#     }
+#
+#
+#
+#     # ops.load(6, 0.0, -10000.0, 0.0)  # Apply a point load of 10 kN at node 6
+#     #
+#     # ok = run_static_analysis()
+#     #
+#     # # plot_internal_forces()
+#     #
+#     # nodeId = nearest_node(2.6)
+#     #
+#     create_vehicle(properties, 3, [10, 100, 100], [2 , 4], "Dummy")
+#
+#     create_vehicle(properties, 2, [100, 100], [1.0], "Tandem")
+#
+#     # ok = run_vehicle_load_analysis(properties, 2.5, "Tandem", direction='left')
+#     # update_internal_forces(properties, 'Tandem')
+#
+#     # plot_internal_forces()
+#
+#     for vehicle in ['Dummy', 'Tandem']:
+#         for direction in ['left', 'right']:
+#             for x_ref in linspace(0, 10, 21 ):
+#
+#                 print(f'\n--- Analyzing position x_ref={x_ref:.2f} m, direction={direction} ---')
+#                 ok = run_vehicle_load_analysis(properties, x_ref, vehicle, direction=direction)
+#                 update_internal_forces(properties, vehicle)
+#
+#         build_envelope_from_history(properties, vehicle_name=vehicle)
+#         plot_envelope_with_labels(properties, vehicle_name=vehicle, title_prefix=f"{vehicle} Envelope")
+#
+#
+    # plot_two_vehicles_envelopes(properties, 'Tandem', 'Dummy')
+#
+#     ratios = compute_ratios_between_vehicles(
+#         properties,
+#         ref_vehicle="Tandem",
+#         new_vehicle="Dummy"
+#     )
+#
+    # plot_vehicle_ratio_lines(properties, 'Tandem', 'Dummy')
+#
+#     # plot_internal_forces()
+#
+#
+#
+#
+#     print(f'Fin: Analysis completed with status: {ok}')
 

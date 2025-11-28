@@ -1,10 +1,15 @@
 import streamlit as st
-from opensees_model import create_vehicle
+from opensees_model import (create_vehicle,
+                            run_analysis,
+                            plot_envelope_streamlit,
+                            plot_two_vehicles_env_streamlit,
+                            compute_ratios_between_vehicles,
+                            plot_vehicle_ratio_streamlit)
 from vehicle_library import PREDEFINED_VEHICLES
 
 
 st.set_page_config(page_title="Beam model (OpenSees) — Streamlit", layout="wide")
-st.header("Bridge Properties Input")
+# st.header("Bridge Properties Input")
 
 # --- Sidebar: Model definition ---
 st.sidebar.header("Model geometry and properties")
@@ -132,17 +137,50 @@ if st.sidebar.button("Create Vehicle"):
     create_vehicle(properties, n_axles, axle_loads, axle_positions, vehicle_name)
     create_vehicle(properties, n_axles_ref, axle_loads_ref, axle_positions_ref, vehicle_name_ref)
 
-st.json(vehicle_properties)
-# --------- BUILD PROPERTIES DICTIONARY -----------
+    run_analysis(properties)
 
+    ratios = compute_ratios_between_vehicles(properties,
+        ref_vehicle=selected_vehicle,
+        new_vehicle=vehicle_name
+    )
 
+    # st.header("Envelope diagrams")
 
+    figV_ref, figM_ref = plot_envelope_streamlit(properties, selected_vehicle)
+    figV_cust, figM_cust = plot_envelope_streamlit(properties, vehicle_name)
 
+    figV, figM = plot_two_vehicles_env_streamlit(properties, selected_vehicle, vehicle_name)
 
+    figVratio, figMratio = plot_vehicle_ratio_streamlit(properties, selected_vehicle, vehicle_name)
 
+    colA, colB = st.columns(2)
 
-# Show the dictionary to the user
-st.subheader("Generated Properties Dictionary")
-st.json(properties)
+    with colA:
+
+        st.subheader(f"Shear Ratio - {vehicle_name} / {selected_vehicle}")
+        st.pyplot(figVratio)
+        st.subheader(f"Shear Envelope - {selected_vehicle}")
+        st.pyplot(figV_ref)
+        st.subheader(f"Shear Envelope - {vehicle_name}")
+        st.pyplot(figV_cust)
+        st.subheader("Shear Envelope")
+        st.pyplot(figV)
+
+    with colB:
+
+        st.subheader(f"Moment Ratio - {vehicle_name} / {selected_vehicle}")
+        st.pyplot(figMratio)
+        st.subheader(f"Moment Envelope - {selected_vehicle}")
+        st.pyplot(figM_ref)
+        st.subheader(f"Moment Envelope - {vehicle_name}")
+        st.pyplot(figM_cust)
+        st.subheader("Moment Envelope")
+        st.pyplot(figM)
+
+# st.json(vehicle_properties)
+# # Show the dictionary to the user
+# st.subheader("Generated Properties Dictionary")
+# st.json(properties)
+
 
 
