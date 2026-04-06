@@ -20,7 +20,7 @@ st.sidebar.subheader("Span lengths (m)")
 for i in range(span_count):
     length = st.sidebar.number_input(f"Length of span {i+1} m",
                                      min_value=0.1,
-                                     value=40*0.8 if i!=1 else 40.0,
+                                     value=5.*0.8 if i!=1 else 5.0,
                                      step=0.1,
                                      key=f"span_len_{i}")
     span_lengths.append(length)
@@ -84,7 +84,7 @@ for i in range(n_axles):
     load = st.sidebar.number_input(
         f"Axle {i+1} Load (kN)",
         min_value=0.0,
-        value=400.0 if i == 0 else 600.0,
+        value=98.0 if i == 0 else 441.0,
         step=1.0,
         key=f"axle_load_{i}"
     )
@@ -94,7 +94,7 @@ for i in range(n_axles-1):
     pos = st.sidebar.number_input(
         f"Axle {i+1} Position from front (m)",
         min_value=0.0,
-        value=9.75 if i == 0 else 11.50,
+        value=10.5 if i == 0 else 15.0,
         step=0.1,
         key=f"axle_pos_{i}"
     )

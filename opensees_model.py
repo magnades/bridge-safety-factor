@@ -342,6 +342,13 @@ def update_internal_forces(prop_dict, vehicle_name):
     # Get element list
     element_ids = ops.getEleTags()
 
+    # Get internal forces
+    forces = getFrameForces(prop_dict)
+    node_list = ops.getNodeTags()
+
+    int_forces_dict = {n: {'P': forces['axialForce'][n-1], 'V': forces['shearForceZ'][n-1], 'M': forces['torsion'][n-1]} for n in node_list}
+
+
     for ele_tag in element_ids:
 
         # Init element container if needed
@@ -349,11 +356,13 @@ def update_internal_forces(prop_dict, vehicle_name):
             forces_dict[ele_tag] = {}
 
         # Get internal forces
-        p_i, v_i, m_i, p_j, v_j, m_j = ops.eleResponse(ele_tag, 'globalForce')
+
+        ndi, ndj = ops.eleNodes(ele_tag)
+
 
         current_forces = {
-            'P_i': p_i, 'V_i': v_i, 'M_i': m_i,
-            'P_j': p_j, 'V_j': v_j, 'M_j': m_j,
+            'P_i': int_forces_dict[ndi]['P'], 'V_i': int_forces_dict[ndi]['V'], 'M_i': int_forces_dict[ndi]['M'],
+            'P_j': int_forces_dict[ndj]['P'], 'V_j': int_forces_dict[ndj]['V'], 'M_j': int_forces_dict[ndj]['M'],
         }
 
         # Update min/max
@@ -436,26 +445,24 @@ def build_envelope_from_history(prop_dict, vehicle_name, coord_index=0):
             node_data[nj] = {'x': xj, 'V': [], 'M': []}
 
         # --- LEFT end (i end)
-        # Vi_max = result['V_i']['max']
-        Vi_min = result['V_i']['min']*-1
-        # Mi_max = result['M_i']['max']
-        Mi_min = result['M_i']['min']*-1
+        Vi_max = result['V_i']['max']
+        Vi_min = result['V_i']['min']
+        Mi_max = result['M_i']['max']
+        Mi_min = result['M_i']['min']
 
-        # node_data[ni]['V'] += [Vi_max, Vi_min]
-        node_data[ni]['V'] += [Vi_min]
-        # node_data[ni]['M'] += [Mi_max, Mi_min]
-        node_data[ni]['M'] += [Mi_min]
+        node_data[ni]['V'] += [Vi_max, Vi_min]
+        node_data[ni]['M'] += [Mi_max, Mi_min]
+
 
         # --- RIGHT end (j end)
-        # Vj_max = result['V_j']['max']
+        Vj_max = result['V_j']['max']
         Vj_min = result['V_j']['min']
-        # Mj_max = result['M_j']['max']
+        Mj_max = result['M_j']['max']
         Mj_min = result['M_j']['min']
 
-        # node_data[nj]['V'] += [Vj_max, Vj_min]
-        node_data[nj]['V'] += [Vj_min]
-        # node_data[nj]['M'] += [Mj_max, Mj_min]
-        node_data[nj]['M'] += [Mj_min]
+        node_data[nj]['V'] += [Vj_max, Vj_min]
+        node_data[nj]['M'] += [Mj_max, Mj_min]
+
 
     # --- Build node-based envelope
     nodes_sorted = sorted(node_data.items(), key=lambda kv: kv[1]['x'])
@@ -988,13 +995,252 @@ def run_analysis(prop_dict):
 
 
 
+def getFrameForces(prop_dict, axis: str = 'x'):
+
+    elementList = ops.getEleTags()
+
+    bendMomentZ = []
+    shearForceZ = []
+    bendMomentY = []
+    shearForceY = []
+    axialForce = []
+    torsion = []
+
+    numEle = len(elementList)
+    count = 1
+
+    # Recorrer los elementos y obtener las fuerzas globales
+    for ele in elementList:
+
+        fuerza_local = ops.eleResponse(ele, 'localForce')
+        ndI, ndJ = ops.eleNodes(int(ele))
+        ix, iy = ops.nodeCoord(ndI)
+        jx, jy = ops.nodeCoord(ndJ)
+
+        match axis:
+            case 'x':
+                i = ix
+                j = jx
+
+        if count != numEle:
+
+            if j > i:  ## Esta tomando las fuerzas del nodo j
+                # mx = 5
+                # vx = 1
+                # my = 4
+                vy = 1
+                p = 3  ## TODO: Se cambia el indice de la carga axial para que coincida con el signo de las fuerzas  en el diagrama
+                t = 2
+
+
+
+
+            bendMomentZ.append(-10)  ## TODO: Este -1 es una improvisacion ya que no estoy seguro por que funciona para fuerzas aplicadas en X o Y en elementos Viga
+            shearForceY.append(-10)
+
+            bendMomentY.append(-10)
+
+            shearForceZ.append(fuerza_local[vy])
+
+            axialForce.append(fuerza_local[p])
+            torsion.append(-1 * fuerza_local[
+                t])  ## TODO: Este -1 es una improvisacion ya que lo coloco para que la torsion corresponda en pilotes
+
+            count += 1
+
+        else:
+            if j > i:
+                # mx = 5
+                # vx = 1
+                # my = 4
+                vy = 1
+                p = 3  ## TODO: Se cambia el indice de la carga axial para que coincida con el signo de las fuerzas  en el diagrama
+                t = 2
+
+                bendMomentZ.append(-10)  ## TODO: Este -1 es una improvisacion ya que no estoy seguro por que funciona para fuerzas aplicadas en X o Y en elementos Viga
+                shearForceY.append(-10)
+
+                bendMomentY.append(-10)
+                shearForceZ.append(fuerza_local[vy])
+
+                axialForce.append(fuerza_local[p])
+                torsion.append(-1 * fuerza_local[
+                    t])  ## TODO: Este -1 es una improvisacion ya que lo coloco para que la torsion corresponda en pilotes
+
+                # mx = 5
+                # vx = 1
+                # my = 4
+                vy = 4
+                p = 0  ## TODO: Se cambia el indice de la carga axial para que coincida con el signo de las fuerzas  en el diagrama
+                t = 5
+
+                bendMomentZ.append(-10)  ## TODO: Este -1 es una improvisacion ya que no estoy seguro por que funciona para fuerzas aplicadas en X o Y en elementos Viga
+                shearForceY.append(-10)
+
+                bendMomentY.append(-10)
+                shearForceZ.append(fuerza_local[vy])
+
+                axialForce.append(fuerza_local[p])
+                torsion.append(-1 * fuerza_local[
+                    t])  ## TODO: Este -1 es una improvisacion ya que lo coloco para que la torsion corresponda en pilotes
+
+
+
+    bendMomentY[-1] = -1 * bendMomentY[-1]
+    shearForceZ[-1] = -1 * shearForceZ[-1]
+    bendMomentZ[-1] = -1 * bendMomentZ[-1]
+    shearForceY[-1] = -1 * shearForceY[-1]
+    axialForce[-1] = -1 * axialForce[-1]
+    torsion[-1] = -1 * torsion[
+        -1]  ##TODO: Estas lineas de codigo son un remiendo a la logica, revisar correctamente esto debido a que parece arreglar los diagramas de torsion pero danar los de cortante y flexion
+
+    return {
+        'bendMomentZ': bendMomentZ,
+        'shearForceZ': shearForceZ,
+        'bendMomentY': bendMomentY,
+        'shearForceY': shearForceY,
+        'axialForce': axialForce,
+        'torsion': torsion
+    }
+
+def plot_internal_forces(forces_dict: dict):
+    import matplotlib.pyplot as plt
+
+     # obtener coordenadas x de cada nodo
+    node_list = ops.getNodeTags()
+    Nodedisplacements = [0]*len(node_list)
+
+    NodeCoordinates = [ops.nodeCoord(n)[0] for n in node_list]
+    shearForceZ = forces_dict['shearForceZ']
+    bendMomentY = forces_dict['bendMomentY']
+    shearForceY = forces_dict['shearForceY']
+    bendMomentZ = forces_dict['bendMomentZ']
+    axialForce = forces_dict['axialForce']
+    torsion = forces_dict['torsion']
+
+    fig, ax = plt.subplots(2)
+
+    ## Shear Force Z plot
+    plot_beamSubplot(ax[0], shearForceZ, NodeCoordinates,
+                          'Vz')  ##TODO: Corregir el hecho que el grafico de desplazamientos cuando el elemento es una viga secundaria el desplazamiento dice en y pero se plotea el desplazamiento en X
+    # ## Bending moment Y plot
+    # plot_beamSubplot(ax[0, 1], bendMomentY, NodeCoordinates, 'My')
+    # ## Shear Force Y plot
+    # plot_beamSubplot(ax[1, 0], shearForceY, NodeCoordinates, 'Vy')
+    # ## Bending moment Z plot
+    # plot_beamSubplot(ax[1, 1], bendMomentZ, NodeCoordinates, 'Mz')
+
+    # # Ajustar el espaciado entre subplots
+    # plt.tight_layout()
+    #
+    # ## Grafica de Desplazamientos, Fuerza Axial y Torsion
+    #
+    # fig, ax = plt.subplots(2, 2)
+
+    # ## Displacement plot Z direction
+    # plot_beamSubplot(ax[0, 0], Nodedisplacements, NodeCoordinates, 'dz')
+    # ## Displacement plot Y direction
+    # plot_beamSubplot(ax[0, 1], Nodedisplacements, NodeCoordinates, 'dy')
+    # ## Axial Force X direction
+    # plot_beamSubplot(ax[1, 0], axialForce, NodeCoordinates, 'P')
+    ## Torsion Moment plot X direction
+    plot_beamSubplot(ax[1], torsion, NodeCoordinates, 'T')
+
+    # Ajustar el espaciado entre subplots
+    plt.tight_layout()
+
+    # Mostrar la gráfica
+    plt.show()
+
+def plot_beamSubplot(ax: 'Axes',
+                     internalForce: list[float],
+                     NodeCoordinates: list[float],
+                     typeForce: str):
+
+    maxPoint = max(internalForce)
+    minPoint = min(internalForce)
+
+    id_max = internalForce.index(maxPoint)
+    id_min = internalForce.index(minPoint)
+
+    limite = 3e-11
+
+    internalForce = [0 if abs(num) < limite else num for num in internalForce]
+
+    NodeCoordinatesX = [0] * (
+        len(internalForce))  # Considerando que NodeCoordinatesX es de la misma longitud que internalForce
+
+    ax.plot(NodeCoordinates, NodeCoordinatesX, color="r")
+    ax.plot(NodeCoordinates, internalForce, color="b")
+
+    match typeForce:
+        case 'P':
+            ytitle = 'Axial Force X kN'
+            forceTitle = "{:5.2f} kN"
+        case 'T':
+            ytitle = 'Torsion Force X kN-m'
+            forceTitle = "{:5.2f} kN-m"
+        case 'Vz':
+            ytitle = 'Shear Force Z kN'
+            forceTitle = "{:5.2f} kN"
+        case 'Vy':
+            ytitle = 'Shear Force Y kN'
+            forceTitle = "{:5.2f} kN"
+        case 'Mz':
+            ytitle = 'Bending Moment Z kN-m'
+            forceTitle = "{:5.2f} kN-m"
+        case 'My':
+            ytitle = 'Bending Moment Y kN-m'
+            forceTitle = "{:5.2f} kN-m"
+        case 'dz':
+            ytitle = 'Displacement Z mm'
+            forceTitle = '{:5.2f} mm'
+        case 'dy':
+            ytitle = 'Displacement Y mm'
+            forceTitle = '{:5.2f} mm'
+        case 'basicPx':
+            ytitle = 'Basic Axial Force X kN'
+            forceTitle = '{:5.2f} kN'
+        case 'basicTx':
+            ytitle = 'Basic Torsion Moment X kN-m'
+            forceTitle = '{:5.2f} kN-m'
+        case 'basicMz':
+            ytitle = 'Basic Bending Moment Z kN-m'
+            forceTitle = '{:5.2f} kN-m'
+        case 'basicMy':
+            ytitle = 'Basic Bending Moment Y kN-m'
+            forceTitle = '{:5.2f} kN-m'
+        case 'basicex':
+            ytitle = 'Basic Axial Strain X m/m'
+            forceTitle = '{:8.3g} m/m'
+        case 'basickx':
+            ytitle = 'Basic Curvature X 1/m'
+            forceTitle = '{:8.3g} 1/m'
+        case 'basickz':
+            ytitle = 'Basic Curvature Z 1/m'
+            forceTitle = '{:8.3g} 1/m'
+        case 'basicky':
+            ytitle = 'Basic Curvature Y 1/m'
+            forceTitle = '{:8.3g} 1/m'
+
+    xtitle = 'Beam Length m'
+
+    ax.set_xlabel(xtitle)
+    ax.set_ylabel(ytitle)
+    ax.text(NodeCoordinates[id_min], minPoint, forceTitle.format(minPoint), color='red')
+    ax.text(NodeCoordinates[id_max], maxPoint, forceTitle.format(maxPoint), color='red')
+
+    ax.minorticks_on()
+    ax.grid(True)
+    ax.grid(True, which='minor', linestyle='--', linewidth=0.5, color='gray', alpha=0.5)
+
 # # --- Example usage ---
 if __name__ == "__main__":
     # Define properties
 
     properties = {
         'span_lengths': [40*0.8, 40.0, 40*0.8],  # lengths of each span in meters
-        'nodes_per_span': 11,        # number of nodes per span
+        'nodes_per_span': 64,        # number of nodes per span
         'support_types': ['second-class', 'pinned', 'pinned', 'pinned'],
         'E': 25000000,
         'A': 0.6,
@@ -1014,6 +1260,8 @@ if __name__ == "__main__":
     create_vehicle(properties, 3, [200, 200, 200], [2.5 , 2.5], "Portugal")
 
     create_vehicle(properties, 3, [400, 600, 600], [9.75, 11.50], "Analisis")
+
+    create_vehicle(properties, 3, [100, 100, 100], [4.0, 8.0], "Tandem")
 
     # ok = run_vehicle_load_analysis(properties, 2.5, "Tandem", direction='left')
     # update_internal_forces(properties, 'Tandem')
@@ -1038,6 +1286,11 @@ if __name__ == "__main__":
 
     # plot_internal_forces()
 
+    ok = run_vehicle_load_analysis(properties, 16.0, "Tandem", direction='left')
+
+    forces = getFrameForces(properties)
+
+    plot_internal_forces(forces)
 
 
 
